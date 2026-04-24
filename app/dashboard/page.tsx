@@ -7,6 +7,7 @@ import StockChart from "../components/StockChart";
 type PlanType = "basic" | "pro" | "unlimited" | "loading" | "no-user" | "error";
 type AssetType = "stock" | "crypto";
 type AlertConditionType = "above" | "below";
+type NewsCategory = "market" | "company" | "crypto";
 
 type StockResult = {
   source?: string;
@@ -114,6 +115,72 @@ type AlertPriceMap = Record<
     changePercent: number | null;
   }
 >;
+
+type NewsItem = {
+  title: string;
+  source: string;
+  category: NewsCategory;
+  url: string;
+  summary: string;
+  tag: string;
+};
+
+const NEWS_ITEMS: NewsItem[] = [
+  {
+    category: "market",
+    tag: "Macro",
+    source: "MarketWatch / Google News",
+    title: "Пазарни новини: индекси, облигации, долар и Фед",
+    summary:
+      "Следи най-важните движения при S&P 500, Nasdaq, доходността по облигации, долара и очакванията за лихвите.",
+    url: "https://news.google.com/search?q=stock%20market%20S%26P%20500%20Nasdaq%20Fed%20inflation",
+  },
+  {
+    category: "market",
+    tag: "Indexes",
+    source: "Reuters / Google News",
+    title: "Глобални пазари: Европа, САЩ и Азия",
+    summary:
+      "Бърз поток от новини за водещите борси, risk-on/risk-off настроения и макро катализатори.",
+    url: "https://news.google.com/search?q=global%20markets%20stocks%20Europe%20Asia%20US",
+  },
+  {
+    category: "company",
+    tag: "AI Stocks",
+    source: "Companies / Google News",
+    title: "Новини за водещи компании: Nvidia, Apple, Tesla, Microsoft",
+    summary:
+      "Следи earnings, AI инвестиции, guidance, margins и нови продукти при най-гледаните компании.",
+    url: "https://news.google.com/search?q=Nvidia%20Apple%20Tesla%20Microsoft%20earnings%20AI%20stocks",
+  },
+  {
+    category: "company",
+    tag: "Earnings",
+    source: "Earnings / Google News",
+    title: "Earnings сезон: приходи, EPS, маржове и прогнози",
+    summary:
+      "Новини около отчетите на компаниите и реакции на пазара след публикуване на резултати.",
+    url: "https://news.google.com/search?q=earnings%20revenue%20EPS%20guidance%20stocks",
+  },
+  {
+    category: "crypto",
+    tag: "Bitcoin",
+    source: "Crypto / Google News",
+    title: "Крипто новини: Bitcoin, Ethereum, ETF и регулации",
+    summary:
+      "Следи spot ETF потоци, регулации, институционално търсене и ключови движения при BTC и ETH.",
+    url: "https://news.google.com/search?q=Bitcoin%20Ethereum%20ETF%20crypto%20regulation",
+  },
+  {
+    category: "crypto",
+    tag: "Altcoins",
+    source: "Crypto / Google News",
+    title: "Алткойни и крипто пазар: Solana, BNB, XRP, Chainlink",
+    summary:
+      "Новини за ликвидност, on-chain активност, екосистеми, DeFi и големи движения при алткойните.",
+    url: "https://news.google.com/search?q=Solana%20BNB%20XRP%20Chainlink%20altcoins%20crypto",
+  },
+];
 
 const KNOWN_CRYPTO_SYMBOLS = new Set([
   "BTC",
@@ -811,6 +878,91 @@ function MetricCard({
   );
 }
 
+function NewsSection({
+  title,
+  subtitle,
+  category,
+}: {
+  title: string;
+  subtitle: string;
+  category: NewsCategory;
+}) {
+  const items = NEWS_ITEMS.filter((item) => item.category === category);
+
+  return (
+    <div style={styles.newsSection}>
+      <div style={styles.newsSectionHeader}>
+        <div>
+          <h3 style={styles.newsSectionTitle}>{title}</h3>
+          <p style={styles.newsSectionSubtitle}>{subtitle}</p>
+        </div>
+
+        <span style={styles.newsLiveBadge}>LIVE FEED</span>
+      </div>
+
+      <div style={styles.newsList}>
+        {items.map((item) => (
+          <a
+            key={item.title}
+            href={item.url}
+            target="_blank"
+            rel="noreferrer"
+            style={styles.newsCard}
+          >
+            <div style={styles.newsTopRow}>
+              <span style={styles.newsTag}>{item.tag}</span>
+              <span style={styles.newsSource}>{item.source}</span>
+            </div>
+
+            <div style={styles.newsTitle}>{item.title}</div>
+            <div style={styles.newsSummary}>{item.summary}</div>
+
+            <div style={styles.newsOpenText}>Отвори актуалната емисия →</div>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DashboardNewsHome() {
+  return (
+    <div style={styles.newsHome}>
+      <div style={styles.newsHero}>
+        <div>
+          <div style={styles.newsHeroBadge}>MARKET DESK</div>
+          <h2 style={styles.newsHeroTitle}>Новинарски център преди анализа</h2>
+          <p style={styles.newsHeroText}>
+            Когато няма избран тикер, тук виждаш бърз достъп до актуални пазарни,
+            корпоративни и крипто новини. След като въведеш тикер и натиснеш
+            „Анализирай“, тази зона се заменя с пълния анализ на актива.
+          </p>
+        </div>
+      </div>
+
+      <div style={styles.newsGrid}>
+        <NewsSection
+          title="Пазарни новини"
+          subtitle="Индекси, Фед, инфлация, облигации и глобален риск."
+          category="market"
+        />
+
+        <NewsSection
+          title="Новини за компании"
+          subtitle="AI акции, earnings, guidance, margins и големи движения."
+          category="company"
+        />
+
+        <NewsSection
+          title="Крипто новини"
+          subtitle="Bitcoin, Ethereum, ETF потоци, регулации и алткойни."
+          category="crypto"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const supabase = createClient();
 
@@ -1345,13 +1497,13 @@ export default function DashboardPage() {
   };
 
   const getFinalAssessmentTitle = () => {
-    if (!stockResult) return "Финална оценка";
+    if (!stockResult) return "Пазарен режим";
     return stockResult.purchaseSignal || "Финална оценка";
   };
 
   const getFinalAssessmentText = () => {
     if (!stockResult) {
-      return "След анализа тук ще видиш кратко заключение дали активът изглежда атрактивен, неутрален или рисков в момента.";
+      return "Избери актив от списъка или въведи тикер. След анализа тук ще се появи финалното заключение.";
     }
 
     if (stockResult.tier === "basic") {
@@ -1486,34 +1638,32 @@ export default function DashboardPage() {
 
         <div style={styles.grid}>
           <div style={styles.mainCard}>
-            <div style={styles.profileCard}>
-              <div style={styles.sectionTitleRow}>
-                <h2 style={styles.sectionTitle}>
-                  {stockResult?.assetType === "crypto" ? "Информация за актива" : "Информация за компанията"}
-                </h2>
+            {!stockResult ? (
+              <DashboardNewsHome />
+            ) : (
+              <>
+                <div style={styles.profileCard}>
+                  <div style={styles.sectionTitleRow}>
+                    <h2 style={styles.sectionTitle}>
+                      {stockResult?.assetType === "crypto" ? "Информация за актива" : "Информация за компанията"}
+                    </h2>
 
-                {stockResult?.companyInfo?.symbol ? (
-                  <button
-                    type="button"
-                    onClick={toggleCurrentWatchlist}
-                    style={{
-                      ...styles.watchlistActionButton,
-                      ...(isCurrentInWatchlist
-                        ? styles.watchlistActionButtonActive
-                        : {}),
-                    }}
-                  >
-                    {isCurrentInWatchlist ? "★ В любими" : "☆ Добави в любими"}
-                  </button>
-                ) : null}
-              </div>
+                    {stockResult?.companyInfo?.symbol ? (
+                      <button
+                        type="button"
+                        onClick={toggleCurrentWatchlist}
+                        style={{
+                          ...styles.watchlistActionButton,
+                          ...(isCurrentInWatchlist
+                            ? styles.watchlistActionButtonActive
+                            : {}),
+                        }}
+                      >
+                        {isCurrentInWatchlist ? "★ В любими" : "☆ Добави в любими"}
+                      </button>
+                    ) : null}
+                  </div>
 
-              {!stockResult ? (
-                <p style={styles.analysisText}>
-                  След анализа тук ще виждаш име, сектор, индустрия, държава, борса, сайт и кратко описание.
-                </p>
-              ) : (
-                <>
                   <div style={styles.profileTopGrid}>
                     <div style={styles.profileMiniCard}>
                       <div style={styles.resultLabel}>Име</div>
@@ -1579,28 +1729,20 @@ export default function DashboardPage() {
                       {safeText(stockResult.companyInfo?.description)}
                     </div>
                   </div>
-                </>
-              )}
-            </div>
+                </div>
 
-            {shouldShowStockChart && (
-              <div style={{ marginBottom: "20px" }}>
-                <StockChart symbol={stockResult.companyInfo!.symbol!} />
-              </div>
-            )}
+                {shouldShowStockChart && (
+                  <div style={{ marginBottom: "20px" }}>
+                    <StockChart symbol={stockResult.companyInfo!.symbol!} />
+                  </div>
+                )}
 
-            {shouldShowCryptoChart && (
-              <div style={{ marginBottom: "20px" }}>
-                <CryptoChart symbol={stockResult.companyInfo!.symbol!} />
-              </div>
-            )}
+                {shouldShowCryptoChart && (
+                  <div style={{ marginBottom: "20px" }}>
+                    <CryptoChart symbol={stockResult.companyInfo!.symbol!} />
+                  </div>
+                )}
 
-            {!stockResult ? (
-              <div style={styles.emptyState}>
-                Въведи тикер и натисни „Анализирай“, за да заредиш реални данни.
-              </div>
-            ) : (
-              <>
                 <div style={styles.sectionHeader}>BASIC</div>
                 <div style={styles.compactGrid}>
                   <MetricCard
@@ -1881,7 +2023,7 @@ export default function DashboardPage() {
             />
 
             <MarketOverviewCard
-              title="КРИПТО ТЕСТ 999"
+              title="Популярно крипто"
               items={overview.cryptos}
               type="crypto"
               onSelectSymbol={handleQuickSelect}
@@ -2067,7 +2209,135 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "20px",
     padding: "20px",
     boxShadow: "0 18px 40px rgba(0,0,0,0.35)",
-    minHeight: "420px",
+  },
+  newsHome: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "18px",
+  },
+  newsHero: {
+    background:
+      "linear-gradient(135deg, rgba(37,99,235,0.22), rgba(14,165,233,0.08))",
+    border: "1px solid rgba(59,130,246,0.24)",
+    borderRadius: "18px",
+    padding: "22px",
+  },
+  newsHeroBadge: {
+    display: "inline-block",
+    background: "rgba(37,99,235,0.22)",
+    color: "#bfdbfe",
+    border: "1px solid rgba(59,130,246,0.35)",
+    borderRadius: "999px",
+    padding: "6px 10px",
+    fontSize: "11px",
+    fontWeight: 800,
+    marginBottom: "12px",
+  },
+  newsHeroTitle: {
+    color: "white",
+    fontSize: "28px",
+    fontWeight: 800,
+    margin: "0 0 10px",
+  },
+  newsHeroText: {
+    color: "#cbd5e1",
+    fontSize: "15px",
+    lineHeight: 1.7,
+    margin: 0,
+    maxWidth: "920px",
+  },
+  newsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: "14px",
+  },
+  newsSection: {
+    background: "rgba(255,255,255,0.02)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    borderRadius: "16px",
+    padding: "16px",
+    minWidth: 0,
+  },
+  newsSectionHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "10px",
+    alignItems: "flex-start",
+    marginBottom: "14px",
+  },
+  newsSectionTitle: {
+    color: "white",
+    fontSize: "18px",
+    fontWeight: 800,
+    margin: "0 0 6px",
+  },
+  newsSectionSubtitle: {
+    color: "#94a3b8",
+    fontSize: "12px",
+    lineHeight: 1.5,
+    margin: 0,
+  },
+  newsLiveBadge: {
+    flexShrink: 0,
+    background: "rgba(34,197,94,0.14)",
+    color: "#86efac",
+    border: "1px solid rgba(34,197,94,0.28)",
+    borderRadius: "999px",
+    padding: "5px 8px",
+    fontSize: "10px",
+    fontWeight: 800,
+  },
+  newsList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+  },
+  newsCard: {
+    display: "block",
+    textDecoration: "none",
+    background: "rgba(255,255,255,0.025)",
+    border: "1px solid rgba(255,255,255,0.06)",
+    borderRadius: "14px",
+    padding: "13px",
+  },
+  newsTopRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "8px",
+    marginBottom: "8px",
+  },
+  newsTag: {
+    background: "rgba(37,99,235,0.18)",
+    color: "#bfdbfe",
+    border: "1px solid rgba(59,130,246,0.32)",
+    borderRadius: "999px",
+    padding: "4px 8px",
+    fontSize: "10px",
+    fontWeight: 800,
+  },
+  newsSource: {
+    color: "#64748b",
+    fontSize: "10px",
+    textAlign: "right",
+  },
+  newsTitle: {
+    color: "white",
+    fontSize: "14px",
+    fontWeight: 800,
+    lineHeight: 1.45,
+    marginBottom: "8px",
+  },
+  newsSummary: {
+    color: "#cbd5e1",
+    fontSize: "12px",
+    lineHeight: 1.55,
+    marginBottom: "10px",
+  },
+  newsOpenText: {
+    color: "#93c5fd",
+    fontSize: "12px",
+    fontWeight: 800,
   },
   profileCard: {
     background: "rgba(255,255,255,0.02)",
@@ -2134,12 +2404,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: "white",
     fontSize: "24px",
     fontWeight: 800,
-    margin: 0,
-  },
-  analysisText: {
-    color: "#cbd5e1",
-    fontSize: "16px",
-    lineHeight: 1.6,
     margin: 0,
   },
   sectionHeader: {
@@ -2251,14 +2515,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     fontSize: "14px",
     lineHeight: 1.5,
-  },
-  emptyState: {
-    color: "#94a3b8",
-    background: "rgba(255,255,255,0.02)",
-    border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: "16px",
-    padding: "20px",
-    marginBottom: "16px",
   },
   sidebar: {
     minWidth: 0,
