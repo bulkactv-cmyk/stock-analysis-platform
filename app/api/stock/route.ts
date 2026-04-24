@@ -377,6 +377,100 @@ function buildUnlimitedAnalysis(params: {
   };
 }
 
+
+type YahooSearchQuote = {
+  symbol?: string;
+  shortname?: string;
+  longname?: string;
+  quoteType?: string;
+  exchDisp?: string;
+  exchange?: string;
+  typeDisp?: string;
+};
+
+function looksLikeDirectTicker(input: string): boolean {
+  const value = input.trim().toUpperCase();
+
+  if (!value) return false;
+
+  // Examples: AAPL, MSFT, BMW.DE, VOW3.DE, 7203.T, RY.TO, HSBA.L
+  return /^[A-Z0-9.\-=]{1,15}$/.test(value) && !value.includes(" ");
+}
+
+async function resolveYahooSymbol(input: string): Promise<{
+  symbol: string;
+  resolvedFromName: boolean;
+  originalQuery: string;
+  resolvedName: string | null;
+}> {
+  const originalQuery = input.trim();
+  const cleanQuery = originalQuery.toUpperCase();
+
+  if (looksLikeDirectTicker(originalQuery)) {
+    return {
+      symbol: cleanQuery,
+      resolvedFromName: false,
+      originalQuery,
+      resolvedName: null,
+    };
+  }
+
+  const searchResult = await yahooFinance.search(originalQuery, {
+    quotesCount: 10,
+    newsCount: 0,
+  });
+
+  const quotes = ((searchResult?.quotes || []) as YahooSearchQuote[]).filter(
+    (item) => {
+      const quoteType = String(item.quoteType || "").toUpperCase();
+      const typeDisp = String(item.typeDisp || "").toUpperCase();
+
+      return (
+        !!item.symbol &&
+        (
+          quoteType === "EQUITY" ||
+          quoteType === "ETF" ||
+          typeDisp.includes("EQUITY") ||
+          typeDisp.includes("ETF")
+        )
+      );
+    }
+  );
+
+  const preferred = quotes.find((item) => {
+    const symbol = String(item.symbol || "").toUpperCase();
+    const exchange = String(item.exchange || item.exchDisp || "").toUpperCase();
+
+    return (
+      symbol.endsWith(".DE") ||
+      symbol.endsWith(".F") ||
+      symbol.endsWith(".L") ||
+      symbol.endsWith(".PA") ||
+      symbol.endsWith(".AS") ||
+      symbol.endsWith(".MI") ||
+      symbol.endsWith(".SW") ||
+      exchange.includes("XETRA") ||
+      exchange.includes("GERMAN") ||
+      exchange.includes("FRANKFURT") ||
+      exchange.includes("LONDON") ||
+      exchange.includes("EURONEXT")
+    );
+  });
+
+  const selected = preferred || quotes[0];
+
+  if (!selected?.symbol) {
+    throw new Error("No stock symbol found for this company name.");
+  }
+
+  return {
+    symbol: selected.symbol.toUpperCase(),
+    resolvedFromName: true,
+    originalQuery,
+    resolvedName: selected.longname || selected.shortname || null,
+  };
+}
+
 async function fetchCoinMarketCapCrypto(symbol: string) {
   const apiKey = process.env.COINMARKETCAP_API_KEY;
 
@@ -591,7 +685,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const cleanTicker = ticker.trim().toUpperCase();
+    const rawTicker = ticker.trim();
+    const cleanTicker = rawTicker.toUpperCase();
 
     const supabase = await createClient();
 
@@ -650,9 +745,12 @@ export async function POST(req: Request) {
       });
     }
 
-    const quote = await yahooFinance.quote(cleanTicker);
+    const resolved = await resolveYahooSymbol(rawTicker);
+    const resolvedTicker = resolved.symbol;
 
-    const summary = await yahooFinance.quoteSummary(cleanTicker, {
+    const quote = await yahooFinance.quote(resolvedTicker);
+
+    const summary = await yahooFinance.quoteSummary(resolvedTicker, {
       modules: [
         "assetProfile",
         "defaultKeyStatistics",
@@ -693,6 +791,9 @@ export async function POST(req: Request) {
       country: summary.assetProfile?.country || null,
       exchange: quote.fullExchangeName || quote.exchange || null,
       currency: quote.currency || null,
+      resolvedFromName: resolved.resolvedFromName,
+      originalQuery: resolved.originalQuery,
+      resolvedName: resolved.resolvedName,
     };
 
     const basicPayload = {
