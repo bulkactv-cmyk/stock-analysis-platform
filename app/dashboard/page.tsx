@@ -125,6 +125,13 @@ type NewsItem = {
   tag: string;
 };
 
+type SearchSuggestion = {
+  symbol: string;
+  name: string;
+  exchange?: string;
+  type?: string;
+};
+
 const NEWS_ITEMS: NewsItem[] = [
   {
     category: "market",
@@ -972,6 +979,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [analyzing, setAnalyzing] = useState<boolean>(false);
   const [ticker, setTicker] = useState<string>("");
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [stockResult, setStockResult] = useState<StockResult | null>(null);
   const [overview, setOverview] = useState<MarketOverviewResponse>({
     stocks: [],
@@ -994,6 +1003,47 @@ export default function DashboardPage() {
 
   const cleanedTicker = useMemo(() => ticker.trim().toUpperCase(), [ticker]);
   const isLikelyCrypto = useMemo(() => KNOWN_CRYPTO_SYMBOLS.has(cleanedTicker), [cleanedTicker]);
+
+  useEffect(() => {
+    const query = ticker.trim();
+
+    if (query.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search-symbol?q=${encodeURIComponent(query)}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !Array.isArray(data)) {
+          setSuggestions([]);
+          setShowSuggestions(false);
+          return;
+        }
+
+        setSuggestions(data.slice(0, 8));
+        setShowSuggestions(data.length > 0);
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        console.error("SEARCH SYMBOL ERROR:", error);
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [ticker]);
 
   const marketMap = useMemo(() => {
     const combined = [...overview.stocks, ...overview.cryptos];
@@ -1604,23 +1654,69 @@ export default function DashboardPage() {
         </div>
 
         <div style={styles.searchCard}>
-          <input
-            type="text"
-            placeholder="Enter a stock ticker or crypto symbol, for example AAPL or BTC"
-            value={ticker}
-            onChange={(e) => setTicker(e.target.value.toUpperCase())}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !analyzing && !loading) {
-                e.preventDefault();
-                handleAnalyze();
-              }
-            }}
-            style={styles.input}
-          />
+          <div style={styles.searchInputWrap}>
+            <input
+              type="text"
+              placeholder="Enter company name, stock ticker or crypto symbol, for example Mercedes, AAPL or BTC"
+              value={ticker}
+              onChange={(e) => {
+                setTicker(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => {
+                if (suggestions.length > 0) setShowSuggestions(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setShowSuggestions(false);
+                  return;
+                }
+
+                if (e.key === "Enter" && !analyzing && !loading) {
+                  e.preventDefault();
+                  setShowSuggestions(false);
+                  handleAnalyze();
+                }
+              }}
+              style={styles.input}
+            />
+
+            {showSuggestions && suggestions.length > 0 ? (
+              <div style={styles.suggestionsBox}>
+                <div style={styles.suggestionsTitle}>Company suggestions</div>
+
+                {suggestions.map((item) => (
+                  <button
+                    key={`${item.symbol}-${item.exchange || "exchange"}`}
+                    type="button"
+                    style={styles.suggestionItem}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      setTicker(item.symbol);
+                      setShowSuggestions(false);
+                      handleAnalyze(item.symbol);
+                    }}
+                  >
+                    <div style={styles.suggestionLeft}>
+                      <div style={styles.suggestionSymbol}>{item.symbol}</div>
+                      <div style={styles.suggestionName}>{item.name}</div>
+                    </div>
+
+                    <div style={styles.suggestionExchange}>
+                      {item.exchange || item.type || "Market"}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
 
           <button
             style={styles.primaryButton}
-            onClick={() => handleAnalyze()}
+            onClick={() => {
+              setShowSuggestions(false);
+              handleAnalyze();
+            }}
             disabled={analyzing || loading}
           >
             {analyzing ? "Analyzing..." : "Analyze"}
@@ -2120,6 +2216,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexWrap: "wrap",
   },
   searchCard: {
+    position: "relative",
     display: "flex",
     gap: "14px",
     background: "rgba(10, 20, 40, 0.92)",
@@ -2128,7 +2225,70 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "14px 18px",
     boxShadow: "0 18px 40px rgba(0,0,0,0.35)",
     marginBottom: "12px",
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
+    alignItems: "center",
+  },
+  searchInputWrap: {
+    position: "relative",
+    flex: 1,
+    minWidth: "280px",
+  },
+  suggestionsBox: {
+    position: "absolute",
+    top: "calc(100% + 10px)",
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    background: "#111827",
+    border: "1px solid rgba(148,163,184,0.28)",
+    borderRadius: "14px",
+    overflow: "hidden",
+    boxShadow: "0 18px 45px rgba(0,0,0,0.45)",
+  },
+  suggestionsTitle: {
+    color: "#94a3b8",
+    fontSize: "12px",
+    fontWeight: 900,
+    padding: "12px 14px",
+    borderBottom: "1px solid rgba(255,255,255,0.06)",
+    letterSpacing: "0.3px",
+  },
+  suggestionItem: {
+    width: "100%",
+    background: "transparent",
+    border: "none",
+    borderBottom: "1px solid rgba(255,255,255,0.06)",
+    padding: "13px 14px",
+    cursor: "pointer",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "14px",
+    textAlign: "left",
+  },
+  suggestionLeft: {
+    minWidth: 0,
+  },
+  suggestionSymbol: {
+    color: "white",
+    fontSize: "14px",
+    fontWeight: 900,
+    marginBottom: "4px",
+  },
+  suggestionName: {
+    color: "#cbd5e1",
+    fontSize: "12px",
+    lineHeight: 1.35,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  suggestionExchange: {
+    color: "#93c5fd",
+    fontSize: "11px",
+    fontWeight: 900,
+    flexShrink: 0,
+    textAlign: "right",
   },
   hintRow: {
     marginBottom: "20px",
@@ -2144,8 +2304,8 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
   },
   input: {
-    flex: 1,
-    minWidth: "260px",
+    width: "100%",
+    boxSizing: "border-box",
     background: "#1f2937",
     color: "white",
     border: "1px solid #374151",
