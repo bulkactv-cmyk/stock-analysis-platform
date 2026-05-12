@@ -550,7 +550,7 @@ export default function HomePage() {
               <div style={styles.planMiniCard}>
                 <div style={styles.planMiniTitle}>Basic</div>
                 <div style={styles.planMiniText}>
-                  3 analyses per day, basic access, no Alerts and no RSI Premium.
+                  10 analyses per day, basic access, no Alerts and no RSI Premium.
                 </div>
               </div>
 
